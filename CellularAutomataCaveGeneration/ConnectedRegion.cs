@@ -8,13 +8,13 @@ namespace CellularAutomataCaveGeneration
 {
     class ConnectedRegion
     {
-        public int connectedRegionID;
+        public int ID;
         public string thisRegionEdgeCell;
         public string connectedRegionEdgeCell;
 
         public ConnectedRegion(int connectedRegionID, string thisRegionEdgeCell, string connectedRegionEdgeCell)
         {
-            this.connectedRegionID = connectedRegionID;
+            this.ID = connectedRegionID;
             this.thisRegionEdgeCell = thisRegionEdgeCell;
             this.connectedRegionEdgeCell = connectedRegionEdgeCell;
         }

@@ -53,7 +53,7 @@ namespace CellularAutomataCaveGeneration
         {
             for(int i = 0; i < connectedRegions.Count; i++)
             {
-                if (connectedRegions[i].connectedRegionID == id)
+                if (connectedRegions[i].ID == id)
                     return true;
             }
             return false;

@@ -43,7 +43,8 @@ namespace CellularAutomataCaveGeneration
             width = 77;
             height = 70;
             auto = false;
-            NewRandomSeed();
+
+            seed = -1925715175;//NewRandomSeed();
 
             bool loop = true;
             while(loop)
@@ -54,6 +55,7 @@ namespace CellularAutomataCaveGeneration
                 if (input == "R")
                 {
                     auto = false;
+                    
                     NewMap();
                 }
                 else if (input == "RA")
@@ -421,6 +423,45 @@ namespace CellularAutomataCaveGeneration
         }
 
 
+        static DistanceBetweenTwoRegionsStruct GetDistanceBetweenTwoRegions(int currentRegionIndex, int adjacentRegionIndex, DistanceBetweenTwoRegionsStruct _distObj)
+        {
+            DistanceBetweenTwoRegionsStruct distObj = _distObj;
+
+            foreach (KeyValuePair<string, Point> pt in regions[currentRegionIndex].cells)
+            {
+                foreach (KeyValuePair<string, Point> npt in regions[adjacentRegionIndex].cells)
+                {
+                    // a^2 + b^2 = c^2
+                    double distanceToAdjacentRegion = Math.Pow((npt.Value.x - pt.Value.x), 2) + Math.Pow((npt.Value.y - pt.Value.y), 2);
+
+                    if (distanceToAdjacentRegion < distObj.minDistance)
+                    {
+                        distObj.minDistance = distanceToAdjacentRegion;
+                        distObj.currentRegionEdgeCellKey = pt.Key;
+                        distObj.adjacentRegionEdgeCellKey = npt.Key;
+                        distObj.connectedCellIndex = adjacentRegionIndex;
+                    }
+                }
+            }
+            return distObj;
+        }
+
+        struct DistanceBetweenTwoRegionsStruct
+        {
+            public double minDistance;
+            public string currentRegionEdgeCellKey;
+            public string adjacentRegionEdgeCellKey;
+            public int connectedCellIndex;
+            public DistanceBetweenTwoRegionsStruct(bool param = true) // useless variable, just can't have an empty ctor
+            {
+                minDistance = 9999;
+                currentRegionEdgeCellKey = "0,0";
+                adjacentRegionEdgeCellKey = "0,0";
+                connectedCellIndex = 0; 
+            }
+        }
+
+
         static int[,] ConnectRooms(int[,] oldMap)
         {
             int[,] newMap = oldMap;
@@ -438,6 +479,8 @@ namespace CellularAutomataCaveGeneration
                     mainRegionIndex = i;
                 }
             }
+            // the main room is obviously connected to the main room
+            regions[mainRegionIndex].connectedToMainRegion = true;
 
             // so now, every room needs to try to connect to the main room.
             // it needs at least 1 path to the main room
@@ -451,24 +494,31 @@ namespace CellularAutomataCaveGeneration
             // this should reduce the time the algorithm below takes by a lot and also reduce the # of paths between regions.
             // similar to what sebastian lague's video says
 
+            // !! SEED -1925715175 PROVES IT STILL CUTS THROUGH OTHER REGIONS TO GET TO THE MAIN REGION !!
+
 
             // this entire algorithm is horrible and expensive.
             // 4 for loops is ridiculous.
             for (int i = 0; i < regions.Count; i++)
             {
-                double minDistance = 9999;
-                string currentRegionEdgeCellKey = "0,0";
-                string adjacentRegionEdgeCellKey = "0,0";
-                int c = 0; // c for connected, it's a bad name but I wanted to keep the 1 letter so the line lengths are equal later. 100% aesthetic.
+                //double minDistance = 9999;
+                //string currentRegionEdgeCellKey = "0,0";
+                //string adjacentRegionEdgeCellKey = "0,0";
+
+                //int c = 0; // c for connected, it's a bad name but I wanted to keep the 1 letter so the line lengths are equal later. 100% aesthetic.
                 //bool broken = false;
 
 
                 // find the distance and cells to the main region
                 // maybe this should be done later to save memory
                 // actually, this entire program should be an object that gets destroyed once initialization is complete.
+
+                DistanceBetweenTwoRegionsStruct distObj = new DistanceBetweenTwoRegionsStruct(true);
+
                 if (i != mainRegionIndex)
                 {
-                    foreach (KeyValuePair<string, Point> cr in regions[i].cells)
+                    distObj = GetDistanceBetweenTwoRegions(i, mainRegionIndex, distObj);
+                    /*foreach (KeyValuePair<string, Point> cr in regions[i].cells)
                     {
                         foreach (KeyValuePair<string, Point> mr in regions[mainRegionIndex].cells)
                         {
@@ -479,30 +529,34 @@ namespace CellularAutomataCaveGeneration
                                 minDistance = distanceToMainRegion;
                                 currentRegionEdgeCellKey = cr.Key;
                                 adjacentRegionEdgeCellKey = mr.Key;
-                            } 
+                            }
                         }
-                    }
+                    }*/
+                    regions[i].distanceToMainRegion = distObj.minDistance;
+                    regions[i].thisRegionCell = distObj.currentRegionEdgeCellKey;
+                    regions[i].mainRegionCell = distObj.adjacentRegionEdgeCellKey;
                 }
-                regions[i].distanceToMainRegion = minDistance;
-                regions[i].thisRegionCell = currentRegionEdgeCellKey;
-                regions[i].mainRegionCell = adjacentRegionEdgeCellKey;
 
 
-                minDistance = 9999;
-                currentRegionEdgeCellKey = "0,0";
-                adjacentRegionEdgeCellKey = "0,0";
 
+                //minDistance = 9999;
+                //currentRegionEdgeCellKey = "0,0";
+                //adjacentRegionEdgeCellKey = "0,0";
+
+                
+                distObj = new DistanceBetweenTwoRegionsStruct(true);
                 for(int n = 0; n < regions.Count; n++)
                 {
                     // don't check the current region 
-                    // and don't check a room it's already connected with
                     if (n == i)// || regions[i].IsRegionConnected(regions[n].id))
                     {
                         // do nothing
                     }
                     else
                     {
-                        foreach (KeyValuePair<string, Point> pt in regions[i].cells)
+                        distObj = GetDistanceBetweenTwoRegions(i, n, distObj);
+
+                        /*foreach (KeyValuePair<string, Point> pt in regions[i].cells)
                         {
                             foreach (KeyValuePair<string, Point> npt in regions[n].cells)
                             {
@@ -517,19 +571,26 @@ namespace CellularAutomataCaveGeneration
                                     c = n;
                                 }  
                             }
-                        }
+                        }*/
                     }
                 }
-                if (!regions[i].IsRegionConnected(regions[c].id))// if the shortest is already connected, ignore it
+                if (!regions[i].IsRegionConnected(regions[distObj.connectedCellIndex].id))// if the shortest is already connected, ignore it
                 {
                     // we now have the 2 closest nodes from 2 different regions
                     // add the adjacencies to each region
-                    regions[i].AddConnectedRegion(regions[c].id, currentRegionEdgeCellKey, adjacentRegionEdgeCellKey);
-                    regions[c].AddConnectedRegion(regions[i].id, adjacentRegionEdgeCellKey, currentRegionEdgeCellKey);
+                    regions[i].AddConnectedRegion(regions[distObj.connectedCellIndex].id, distObj.currentRegionEdgeCellKey, distObj.adjacentRegionEdgeCellKey);
+                    regions[distObj.connectedCellIndex].AddConnectedRegion(regions[i].id, distObj.adjacentRegionEdgeCellKey, distObj.currentRegionEdgeCellKey);
+
+                    // this room is connected to the main room
+                    if (distObj.connectedCellIndex == mainRegionIndex)
+                    {
+                        regions[i].connectedToMainRegion = true;
+                    }
 
                     // this whole bit should be done once the entire set of paths is completed
-                    List<Point> lines = ReturnPathBetweenRegions(new Point(regions[i].cells[currentRegionEdgeCellKey].x, regions[i].cells[currentRegionEdgeCellKey].y),
-                        new Point(regions[c].cells[adjacentRegionEdgeCellKey].x, regions[c].cells[adjacentRegionEdgeCellKey].y));
+                    List<Point> lines = ReturnPathBetweenRegions(
+                        new Point(regions[i].cells[distObj.currentRegionEdgeCellKey].x, regions[i].cells[distObj.currentRegionEdgeCellKey].y),
+                        new Point(regions[distObj.connectedCellIndex].cells[distObj.adjacentRegionEdgeCellKey].x, regions[distObj.connectedCellIndex].cells[distObj.adjacentRegionEdgeCellKey].y));
 
 
                     foreach (Point p in lines)
@@ -537,22 +598,40 @@ namespace CellularAutomataCaveGeneration
                         newMap[p.x, p.y] = 69;
                     }
 
-
-                    /*
-                     * 
-                     * gradient accumulation = dx/2
-                     * gradient = slope
-                     * if dx > dy
-                         * x++
-                         * gradient accumulation += dy
-                         * if(gradient accumulation > dx)
-                         *      y++
-                         *      gradient accumulation -= dx
-                     *  else
-                     *      switch everything around (switch dx and dy / x and y)
-                     */
                 }
             }
+
+
+
+            List<int> checkedRegions = new List<int>();
+            Queue<int> regionStack = new Queue<int>();
+            regionStack.Enqueue(regions[mainRegionIndex].id);
+            checkedRegions.Add(regions[mainRegionIndex].id);
+
+            while (regionStack.Count > 0)
+            {
+                // get the next region to be checked
+                int currentRegionId = regionStack.Dequeue();
+                // get the index of that region
+                int currentRegionIndex = getRegionIndex(currentRegionId);
+
+                regions[currentRegionIndex].connectedToMainRegion = true;
+
+                // get all the connected regions
+                foreach (ConnectedRegion connectedRegion in regions[currentRegionIndex].connectedRegions)
+                {
+                    // if a connected region hasn't been checked
+                    if (!checkedRegions.Contains(connectedRegion.ID))
+                    {
+                        // add that region id to the list of checked regions
+                        regionStack.Enqueue(connectedRegion.ID);
+                        checkedRegions.Add(connectedRegion.ID);
+                    }
+                }
+            }
+                
+
+            /*
 
             List<int> regionsToCheck = new List<int>();
             for(int i = 0; i < regions.Count; i++)
@@ -596,10 +675,10 @@ namespace CellularAutomataCaveGeneration
                 // if that loop resulted in a connection to the main region
                 if (connectedToMainRegion)
                 {
-                    /*for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
-                    {
-                        regions[checkedRegionsThisLoop[i] - 2].connectedToMainRegion = true;  
-                    }*/
+                    //for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
+                    //{
+                    //    regions[checkedRegionsThisLoop[i] - 2].connectedToMainRegion = true;  
+                    //}
                 }
                 else
                 {
@@ -639,7 +718,7 @@ namespace CellularAutomataCaveGeneration
                     regions[getRegionIndex(checkedRegionsThisLoop[i])].connectedToMainRegion = true;
                     regionsToCheck.Remove(checkedRegionsThisLoop[i]);
                 }
-            }
+            }*/
 
             return newMap;
         }
@@ -647,6 +726,20 @@ namespace CellularAutomataCaveGeneration
 
         static List<Point> ReturnPathBetweenRegions(Point to, Point from)
         {
+
+            /*
+             * gradient accumulation = dx/2
+             * gradient = slope
+             * if dx > dy
+                 * x++
+                 * gradient accumulation += dy
+                 * if(gradient accumulation > dx)
+                 *      y++
+                 *      gradient accumulation -= dx
+             *  else
+             *      switch everything around (switch dx and dy / x and y)
+             */
+
 
             // this will be our starting point
             int x = from.x;
