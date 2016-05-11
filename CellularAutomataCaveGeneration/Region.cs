@@ -18,6 +18,7 @@ namespace CellularAutomataCaveGeneration
 
         public List<ConnectedRegion> connectedRegions; // 
 
+        // change this to it's onw connected region object
         public bool connectedToMainRegion = false;
         public double distanceToMainRegion = 0;  // if it remains 0, that means this is the main region
         public string thisRegionCell; // the cell in this region

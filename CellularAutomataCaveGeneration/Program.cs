@@ -15,9 +15,14 @@ namespace CellularAutomataCaveGeneration
     //    choose a consistent term for everything. maybe start by renaming point to cell (or tile or whatever it may be)
 
 
+    // there's too much public everywhere, make more get/set and restrict access
+
+    // seed 69 show an example of a bad pathway that is too long and almost cuts through another region
+    // there should be a check to make sure that doesn't happen
+    // if the main region is too far away, it should look for a closer region and connect to that.
+
     class Program
-    {
-        
+    {    
         static private int width, height;
         static float changeToStartAlive = 0.45f; // 0.4 for big room with obstacles, 0.45 for conected rooms
         // death 4, birth 5 gives good open room
@@ -29,16 +34,22 @@ namespace CellularAutomataCaveGeneration
         static int minimumRegionSize = 12;
 
         // 295177381 is really good
-        public static int seed;
+        static int seed;
 
         static bool auto;
         static void Main(string[] args)
         {
-            //NewMap();
-            bool loop = true;
+
+            width = 77;
+            height = 70;
             auto = false;
+            NewRandomSeed();
+
+            bool loop = true;
             while(loop)
             {
+                Console.WriteLine("COMMANDS:\nR: new map, move through steps manually\nRA: new map, move through steps automatically\nP: Set generation Params\nE: exit");
+
                 string input = Console.ReadLine().ToUpper();
                 if (input == "R")
                 {
@@ -52,81 +63,102 @@ namespace CellularAutomataCaveGeneration
                 }
                 else if (input == "E")
                     loop = false;
+                else if (input == "P")
+                    SetParams();
             }
-
         }
 
+        // change parameters
+        static void SetParams()
+        {
+            bool loop = true;
+            auto = false;
+            while (loop)
+            {
+                Console.WriteLine("COMMANDS:\nSEED: change the seed value \nE: return to previous menu");
+
+                string input = Console.ReadLine().ToUpper();
+                if (input == "SEED")
+                {
+                    Console.WriteLine("Enter a number for a new seed, enter anything else for a random seed");
+                    string seedInput = Console.ReadLine().ToUpper();
+                    try
+                    {
+                        seed = Convert.ToInt32(seedInput);
+                    }
+                    catch
+                    {
+                        NewRandomSeed();
+                    }
+                    Console.WriteLine("New seed: " + seed.ToString());
+                }
+                else if (input == "E")
+                    loop = false;
+            }
+        }
+
+        static void NewRandomSeed()
+        {
+            // good test seed -> -2091306045;
+            seed = Guid.NewGuid().GetHashCode(); //GUID = globally unique identifier
+        }
 
         static void NewMap()
         {
-            width = 77;
-            height = 70;
+
             regions = new List<Region>();
             int[,] map = InitMap();
 
-            Console.Clear();
-            Console.WriteLine("noise map");
-            PrintMap(map);
-            if (auto)
-                System.Threading.Thread.Sleep(1000);
-            else
-                Console.ReadLine();
+            PrintMap(map, "noise map");
+            NextStep(auto, 1000);
 
             for (int i = 0; i < numberOfSteps; i++)
             {
                 map = SimulationStep(map);
-                Console.Clear();
-                Console.WriteLine("step " + i);
-                PrintMap(map);
-                if (auto)
-                    System.Threading.Thread.Sleep(500);
-                else
-                    Console.ReadLine();
+                PrintMap(map, "step " + i);
+                NextStep(auto, 500);
             }
             if(!auto)
                 Console.ReadLine();
 
             map = DetectRegions(map);
-            Console.Clear();
-            Console.WriteLine("map with regions");
-            PrintMap(map);
-            if(auto)
-                System.Threading.Thread.Sleep(1000);
-            else
-                Console.ReadLine();
+            
+            PrintMap(map, "map with regions");
+            NextStep(auto, 1000);
 
             map = RemoveSmallRegions(map);
-            Console.Clear();
-            Console.WriteLine("map with small regions removed");
-            PrintMap(map);
-            if(auto)
-                System.Threading.Thread.Sleep(1000);
-            else 
-                Console.ReadLine();
+            PrintMap(map, "map with small regions removed");
+            NextStep(auto, 1000);
 
-            Console.Clear();
-            Console.WriteLine("Edge map");
+
             PrintEdgeMap(map);
+            NextStep(auto, 1000);
 
 
             map = ConnectRooms(map);
-
-
+            PrintMap(map, "all regions Connected");
 
 
             GC.Collect();
         }
 
-        public static void PrintMap(int[,] map)
+
+        static void NextStep(bool auto, int delay)
         {
+            if (auto)
+                System.Threading.Thread.Sleep(1000);
+            else
+                Console.ReadLine();
+        }
+
+        static void PrintMap(int[,] map, string title)
+        {
+            Console.Clear();
+            Console.WriteLine(title);
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
-                    /*if (map[x, y] == 0)
-                        Console.Write("0");
-                    else
-                        Console.Write("*");*/
                     if (map[x, y] == 1)
                         Console.Write("*");
                     else if (map[x, y] == 69) // for testing to draw connecting regions, remove later.
@@ -135,23 +167,16 @@ namespace CellularAutomataCaveGeneration
                     {
                         char letter = (char)('A' + (char)(map[x, y] % 27));
                         Console.Write(letter);
-                        /*if(map[x,y] >= 10)
-                        {
-                            Console.Write(map[x, y].ToString());
-                        }
-                        else
-                        {
-                            Console.Write(map[x, y].ToString());
-                        }*/
-                    }
-                        
+                    }                    
                 }
                 Console.WriteLine();
             }
         }
 
-        public static void PrintEdgeMap(int[,] map)
+        static void PrintEdgeMap(int[,] map)
         {
+            Console.Clear();
+            Console.WriteLine("Edge map");
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -181,16 +206,11 @@ namespace CellularAutomataCaveGeneration
         }
 
 
-
         // generate noise map
-        public static int[,] InitMap()
+        static int[,] InitMap()
         {
             int[,] map = new int[width, height];
-
-            // good test seed -> -2091306045;
-            seed = Guid.NewGuid().GetHashCode(); //GUID = globally unique identifier
             Random r = new Random(seed);
-
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -221,7 +241,7 @@ namespace CellularAutomataCaveGeneration
 
         // alive = filled (1)
         // dead = unfilled (0)
-        public static int[,] SimulationStep(int[,] oldMap)
+        static int[,] SimulationStep(int[,] oldMap)
         {
             int[,] newMap = new int[width, height];
             for (int y = 0; y < height; y++)
@@ -231,7 +251,7 @@ namespace CellularAutomataCaveGeneration
                     // get the number of alive neighbours for the current cell
                     int aliveNeighbourCount = countAliveNeighbours(oldMap, x, y);
 
-                    // guarentee and edge wall
+                    // guarentee an edge wall
                     if(y == 0 || x ==0 || x == width -1 || y == height - 1)
                     {
                         newMap[x, y] = 1;
@@ -272,7 +292,7 @@ namespace CellularAutomataCaveGeneration
 
         // return the # of cells in a ring around map[x,y] that are alive
         // 1 = alive, 0 = dead
-        public static int countAliveNeighbours(int[,] map, int x, int y)
+        static int countAliveNeighbours(int[,] map, int x, int y)
         {
             // getting the total count of alive neighbours
             int count = 0;        
@@ -308,7 +328,7 @@ namespace CellularAutomataCaveGeneration
         // 0 = unfilled
         // track the positions of where 0 spaces start before hand so the loops are minimized.
         // ie -> keep track of the f
-        public static int[,] DetectRegions(int[,] oldMap) 
+        static int[,] DetectRegions(int[,] oldMap) 
         { 
             // count will indicate regions. each region will have it's own number
             int regionID = 2;
@@ -370,11 +390,6 @@ namespace CellularAutomataCaveGeneration
                         }
                         regions.Add(newRegion);
                         regionID++;
-                        
-                        /*Console.Clear();
-                        Console.WriteLine("Generating regions");
-                        PrintMap(newMap);
-                        System.Threading.Thread.Sleep(100);*/
                     }
                     else
                     {
@@ -385,10 +400,10 @@ namespace CellularAutomataCaveGeneration
             return newMap;
         }
 
-        public static int[,] RemoveSmallRegions(int[,] oldMap)
+        static int[,] RemoveSmallRegions(int[,] oldMap)
         {
             int[,] newMap = oldMap;
-            for(int i = regions.Count - 1; i > 0 ; i--)
+            for(int i = regions.Count - 1; i >= 0 ; i--)
             {
                 if(regions[i].Size() < minimumRegionSize)
                 {
@@ -406,7 +421,7 @@ namespace CellularAutomataCaveGeneration
         }
 
 
-        public static int[,] ConnectRooms(int[,] oldMap)
+        static int[,] ConnectRooms(int[,] oldMap)
         {
             int[,] newMap = oldMap;
             int[,] tempMap = oldMap; // purely for drawing / testing. remove later.
@@ -479,11 +494,6 @@ namespace CellularAutomataCaveGeneration
 
                 for(int n = 0; n < regions.Count; n++)
                 {
-                    /*if(regions[i].connectedRegions.Count !=0)
-                    {
-                        broken = true;
-                        break;
-                    }*/
                     // don't check the current region 
                     // and don't check a room it's already connected with
                     if (n == i)// || regions[i].IsRegionConnected(regions[n].id))
@@ -517,11 +527,6 @@ namespace CellularAutomataCaveGeneration
                     regions[i].AddConnectedRegion(regions[c].id, currentRegionEdgeCellKey, adjacentRegionEdgeCellKey);
                     regions[c].AddConnectedRegion(regions[i].id, adjacentRegionEdgeCellKey, currentRegionEdgeCellKey);
 
-                    // for testing only, remove later
-                    //tempMap[regions[i].cells[currentRegionEdgeCellKey].x, regions[i].cells[currentRegionEdgeCellKey].y] = 69;
-                    //tempMap[regions[c].cells[adjacentRegionEdgeCellKey].x, regions[c].cells[adjacentRegionEdgeCellKey].y] = 69;
-
-
                     // this whole bit should be done once the entire set of paths is completed
                     List<Point> lines = ReturnPathBetweenRegions(new Point(regions[i].cells[currentRegionEdgeCellKey].x, regions[i].cells[currentRegionEdgeCellKey].y),
                         new Point(regions[c].cells[adjacentRegionEdgeCellKey].x, regions[c].cells[adjacentRegionEdgeCellKey].y));
@@ -532,9 +537,6 @@ namespace CellularAutomataCaveGeneration
                         newMap[p.x, p.y] = 69;
                     }
 
-                    // for testing only, remove later
-                    Console.Clear();
-                    PrintMap(newMap);
 
                     /*
                      * 
@@ -579,10 +581,7 @@ namespace CellularAutomataCaveGeneration
                         connectedToMainRegion = true;
 
 
-
                     // get all the connected regions
-                    // - 2 because region id's start at 2. it's a bad system.
-
                     foreach (ConnectedRegion connectedRegion in regions[currentRegionIndex].connectedRegions)
                     {
                         // if a connected region hasn't been checked
@@ -601,7 +600,6 @@ namespace CellularAutomataCaveGeneration
                     {
                         regions[checkedRegionsThisLoop[i] - 2].connectedToMainRegion = true;  
                     }*/
-                    
                 }
                 else
                 {
@@ -635,7 +633,6 @@ namespace CellularAutomataCaveGeneration
                         newMap[p.x, p.y] = 69;
                     }
 
-
                 }
                 for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
                 {
@@ -644,15 +641,11 @@ namespace CellularAutomataCaveGeneration
                 }
             }
 
-            // for testing only, remove later
-            Console.Clear();
-            PrintMap(newMap);
-
             return newMap;
         }
 
 
-        public static List<Point> ReturnPathBetweenRegions(Point to, Point from)
+        static List<Point> ReturnPathBetweenRegions(Point to, Point from)
         {
 
             // this will be our starting point
@@ -697,7 +690,6 @@ namespace CellularAutomataCaveGeneration
             }
 
             // dx or dy divided by 2
-
             int gradientAccumulation = longestDistance / 2;
 
             for (int n = 0; n < longestDistance; n++)
@@ -723,10 +715,9 @@ namespace CellularAutomataCaveGeneration
             return lines;
         }
 
-        public static int getRegionIndex(int regionId)
+        static int getRegionIndex(int regionId)
         {
             int regionIndex = -1;
-
             for (int i = 0; i < regions.Count; i++)
             {
                 if(regionId == regions[i].id)
@@ -735,7 +726,6 @@ namespace CellularAutomataCaveGeneration
                     break;
                 }
             }
-
             return regionIndex;
         }
     }
