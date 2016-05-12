@@ -15,11 +15,9 @@ namespace CellularAutomataCaveGeneration
     //    choose a consistent term for everything. maybe start by renaming point to cell (or tile or whatever it may be)
 
 
-    // there's too much public everywhere, make more get/set and restrict access
+    // TODO: ConnectRooms(int[,] oldMap) is basically the same thing twice. slim it down, move it to it's own thing.
+    // TODO: make pathways thicker
 
-    // seed 69 show an example of a bad pathway that is too long and almost cuts through another region
-    // there should be a check to make sure that doesn't happen
-    // if the main region is too far away, it should look for a closer region and connect to that.
 
     class Program
     {    
@@ -33,8 +31,8 @@ namespace CellularAutomataCaveGeneration
         static List<Region> regions;
         static int minimumRegionSize = 12;
 
-        // 295177381 is really good
         static int seed;
+        static bool randSeed = true;
 
         static bool auto;
         static void Main(string[] args)
@@ -44,18 +42,19 @@ namespace CellularAutomataCaveGeneration
             height = 70;
             auto = false;
 
-            seed = -1925715175;//NewRandomSeed();
 
             bool loop = true;
             while(loop)
             {
                 Console.WriteLine("COMMANDS:\nR: new map, move through steps manually\nRA: new map, move through steps automatically\nP: Set generation Params\nE: exit");
 
+                if (randSeed)
+                    NewRandomSeed();
+
                 string input = Console.ReadLine().ToUpper();
                 if (input == "R")
                 {
                     auto = false;
-                    
                     NewMap();
                 }
                 else if (input == "RA")
@@ -77,7 +76,7 @@ namespace CellularAutomataCaveGeneration
             auto = false;
             while (loop)
             {
-                Console.WriteLine("COMMANDS:\nSEED: change the seed value \nE: return to previous menu");
+                Console.WriteLine("COMMANDS:\nSEED: change the seed value \nSIZE: change width / height\nE: return to previous menu");
 
                 string input = Console.ReadLine().ToUpper();
                 if (input == "SEED")
@@ -86,13 +85,45 @@ namespace CellularAutomataCaveGeneration
                     string seedInput = Console.ReadLine().ToUpper();
                     try
                     {
+                        randSeed = false;
                         seed = Convert.ToInt32(seedInput);
                     }
                     catch
                     {
+                        randSeed = true;
                         NewRandomSeed();
                     }
                     Console.WriteLine("New seed: " + seed.ToString());
+                }
+                else if(input == "SIZE")
+                {
+                    Console.WriteLine("CURRENT: width=" + width + " height=" + height + "\n");
+                    Console.Write("new width: ");
+                    string tempWidth = Console.ReadLine();
+                    bool firstFailed = false;
+                    try
+                    {
+                        width = Convert.ToInt32(tempWidth);
+                    }
+                    catch
+                    {
+                        Console.WriteLine("\nincorrect format\n");
+                        firstFailed = true;
+                    }
+                    if(!firstFailed)
+                    {
+                        Console.Write("new height: ");
+                        string tempHeight = Console.ReadLine();
+
+                        try
+                        {
+                            height = Convert.ToInt32(tempHeight);
+                        }
+                        catch
+                        {
+                            Console.WriteLine("\nincorrect format\n");
+                        }
+                    }
                 }
                 else if (input == "E")
                     loop = false;
@@ -101,13 +132,15 @@ namespace CellularAutomataCaveGeneration
 
         static void NewRandomSeed()
         {
-            // good test seed -> -2091306045;
+            // good seeds
+            // -2091306045;
+            // -1925715175 // exposes overlap error
+            // 295177381 is really good
             seed = Guid.NewGuid().GetHashCode(); //GUID = globally unique identifier
         }
 
         static void NewMap()
         {
-
             regions = new List<Region>();
             int[,] map = InitMap();
 
@@ -139,7 +172,7 @@ namespace CellularAutomataCaveGeneration
 
             map = ConnectRooms(map);
             PrintMap(map, "all regions Connected");
-
+            Console.WriteLine("Seed: " + seed.ToString() + "\n\n");
 
             GC.Collect();
         }
@@ -519,17 +552,6 @@ namespace CellularAutomataCaveGeneration
             // the main room is obviously connected to the main room
             regions[mainRegionIndex].connectedToMainRegion = true;
 
-            // should try doing this a little differently to increase efficiency
-            // start with a room and connect it to the next closest room
-            // go to the next room on the list. if it has a connection, skip it.
-            // go to the next room on the list. if it has a connection, skip it.... repeat
-            // now rooms have at least 1 connection
-            // now iterate through again and check if, from that region, there is a path to the main region (the biggest one)
-            // this should reduce the time the algorithm below takes by a lot and also reduce the # of paths between regions.
-
-
-            // !! SEED -1925715175 PROVES IT STILL CUTS THROUGH OTHER REGIONS TO GET TO THE MAIN REGION !!
-
             for (int i = 0; i < regions.Count; i++)
             {
                 // find the distance and cells to the main region
@@ -573,42 +595,12 @@ namespace CellularAutomataCaveGeneration
                     }
                 }
             }
-
             ConnectToMainRegion(mainRegionIndex);
-            /*List<int> checkedRegions = new List<int>();
-            Queue<int> regionStack = new Queue<int>();
-            regionStack.Enqueue(regions[mainRegionIndex].id);
-            checkedRegions.Add(regions[mainRegionIndex].id);
-
-            // this will mark every region attatched to the main region as such
-            while (regionStack.Count > 0)
-            {
-                // get the next region to be checked
-                int currentRegionId = regionStack.Dequeue();
-                // get the index of that region
-                int currentRegionIndex = getRegionIndex(currentRegionId);
-                // mark the region as attatched to the main region
-                regions[currentRegionIndex].connectedToMainRegion = true;
-
-                // get all the connected regions
-                foreach (ConnectedRegion connectedRegion in regions[currentRegionIndex].connectedRegions)
-                {
-                    // if a connected region hasn't been checked
-                    if (!checkedRegions.Contains(connectedRegion.ID))
-                    {
-                        // add that region id to the list of checked regions
-                        regionStack.Enqueue(connectedRegion.ID);
-                        checkedRegions.Add(connectedRegion.ID);
-                    }
-                }
-            }*/
 
 
-            bool complete = false;
-            
+            bool complete = false; 
             while(!complete)
-            {
-                
+            { 
                 List<int> regionsAccessibleFromMainRegion = new List<int>();
                 List<int> regionsNotAccessibleFromMainRegion = new List<int>();
 
@@ -630,12 +622,9 @@ namespace CellularAutomataCaveGeneration
                     complete = true;
                 }
                 else
-                {
-                    
-                    
+                {    
                     DistanceBetweenTwoRegionsStruct distToMainRegionAccessibleRegion = new DistanceBetweenTwoRegionsStruct(true);
-                    //int indexi = 0;
-                    //double previousMinDist = 999999999;
+
                     for (int i = 0; i < regionsAccessibleFromMainRegion.Count; i++)
                     {
                         for (int n = 0; n < regionsNotAccessibleFromMainRegion.Count; n++)
@@ -643,10 +632,8 @@ namespace CellularAutomataCaveGeneration
                             if(n != i)
                                 distToMainRegionAccessibleRegion = GetDistanceBetweenTwoRegions(getRegionIndex(regionsAccessibleFromMainRegion[i]), getRegionIndex(regionsNotAccessibleFromMainRegion[n]), distToMainRegionAccessibleRegion);
                         }
-                        //if (previousMinDist < distToMainRegionAccessibleRegion.minDistance)
-                        //    indexi = i;
                     }
-                        // if the shortest path is already connected, ignore it
+                    // if the shortest path is already connected, ignore it
                     if (!regions[distToMainRegionAccessibleRegion.currentRegionIndex].IsRegionConnected(regions[distToMainRegionAccessibleRegion.connectedCellIndex].id))
                     {
                         // we now have the 2 closest nodes from 2 different regions
@@ -654,7 +641,6 @@ namespace CellularAutomataCaveGeneration
                         regions[distToMainRegionAccessibleRegion.currentRegionIndex].AddConnectedRegion(regions[distToMainRegionAccessibleRegion.connectedCellIndex].id, distToMainRegionAccessibleRegion.currentRegionEdgeCellKey, distToMainRegionAccessibleRegion.adjacentRegionEdgeCellKey);
                         regions[distToMainRegionAccessibleRegion.connectedCellIndex].AddConnectedRegion(regions[distToMainRegionAccessibleRegion.currentRegionIndex].id, distToMainRegionAccessibleRegion.adjacentRegionEdgeCellKey, distToMainRegionAccessibleRegion.currentRegionEdgeCellKey);
 
-                        //regions[i].connectedToMainRegion 
 
                         // this whole bit should be done once the entire set of paths is completed
                         string fromCellKey = distToMainRegionAccessibleRegion.currentRegionEdgeCellKey;
@@ -676,103 +662,10 @@ namespace CellularAutomataCaveGeneration
                         {
                             newMap[p.x, p.y] = 69;
                         }
-                    }
-                    
+                    }       
                     ConnectToMainRegion(mainRegionIndex);
                 }
             }
-
-
-            
-
-            /*
-            List<int> regionsToCheck = new List<int>();
-            for(int i = 0; i < regions.Count; i++)
-            {
-                regionsToCheck.Add(regions[i].id);
-            }
-
-            while(regionsToCheck.Count > 0)
-            {
-                // now that everything's done, check for connectivity to the main room
-                // list of checked region id's
-                List<int> checkedRegionsThisLoop = new List<int>();
-                Queue<int> regionStack = new Queue<int>();
-                regionStack.Enqueue(regionsToCheck[0]);
-                checkedRegionsThisLoop.Add(regionsToCheck[0]);
-                bool connectedToMainRegion = false;
-
-                while (regionStack.Count > 0)
-                {
-                    // get the next region to be checked
-                    int currentRegionId = regionStack.Dequeue();
-                    // get the index of that region
-                    int currentRegionIndex = getRegionIndex(currentRegionId);
-                    // if you pop the main room, that means all regions checked in this loop are connected to the main region
-                    if (currentRegionId == regions[mainRegionIndex].id)
-                        connectedToMainRegion = true;
-
-
-                    // get all the connected regions
-                    foreach (ConnectedRegion connectedRegion in regions[currentRegionIndex].connectedRegions)
-                    {
-                        // if a connected region hasn't been checked
-                        if (!checkedRegionsThisLoop.Contains(connectedRegion.connectedRegionID))
-                        {
-                            // add that region id to the list of checked regions
-                            regionStack.Enqueue(connectedRegion.connectedRegionID);
-                            checkedRegionsThisLoop.Add(connectedRegion.connectedRegionID);
-                        }
-                    }
-                }
-                // if that loop resulted in a connection to the main region
-                if (connectedToMainRegion)
-                {
-                    //for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
-                    //{
-                    //    regions[checkedRegionsThisLoop[i] - 2].connectedToMainRegion = true;  
-                    //}
-                }
-                else
-                {
-                    double shortestDistanceToMainRegion = 9999999;
-                    int closestRegionId = -1;
-                    // need to make a connection between the closest region checked and the main room
-                    for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
-                    {
-                        if (regions[getRegionIndex(checkedRegionsThisLoop[i])].distanceToMainRegion < shortestDistanceToMainRegion)
-                        {
-                            shortestDistanceToMainRegion = regions[getRegionIndex(checkedRegionsThisLoop[i])].distanceToMainRegion;
-                            closestRegionId = checkedRegionsThisLoop[i];
-                        }
-                    }
-                    // we've now got the closest region to the main region
-
-                    // check for -1, that means there's a problem
-                    int regionIndex = getRegionIndex(closestRegionId);
-                    string toCellId = regions[regionIndex].mainRegionCell;
-                    string fromCellId = regions[regionIndex].thisRegionCell;
-
-                    Point to = regions[mainRegionIndex].edgeCells[toCellId];
-                    Point from = regions[regionIndex].edgeCells[fromCellId];
-                    List<Point> lines = ReturnPathBetweenRegions(to, from);
-
-                    regions[regionIndex].AddConnectedRegion(regions[mainRegionIndex].id, fromCellId, toCellId);
-                    regions[mainRegionIndex].AddConnectedRegion(regions[regionIndex].id, toCellId, fromCellId);
-
-                    foreach (Point p in lines)
-                    {
-                        newMap[p.x, p.y] = 69;
-                    }
-
-                }
-                for (int i = 0; i < checkedRegionsThisLoop.Count; i++)
-                {
-                    regions[getRegionIndex(checkedRegionsThisLoop[i])].connectedToMainRegion = true;
-                    regionsToCheck.Remove(checkedRegionsThisLoop[i]);
-                }
-            }*/
-            PrintMap(newMap, "all regions Connected");
             return newMap;
         }
 
