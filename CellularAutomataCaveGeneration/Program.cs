@@ -17,7 +17,6 @@ namespace CellularAutomataCaveGeneration
     //    choose a consistent term for everything. maybe start by renaming point to cell (or tile or whatever it may be)
 
     
-    // TODO: make pathways thicker
     // TODO: change DetectRegions(int[,] oldMap) so region id's start at 0
 
 
@@ -63,6 +62,8 @@ namespace CellularAutomataCaveGeneration
 
         static int seed;
         static bool randSeed = true;
+
+        static int pathwayWidth = 1;
 
         static bool auto;
         static void Main(string[] args)
@@ -617,7 +618,8 @@ namespace CellularAutomataCaveGeneration
                     // change the map to have the connection
                     foreach (Point p in lines)
                     {
-                        newMap[p.x, p.y] = pathwayCode;
+                        //newMap[p.x, p.y] = pathwayCode;
+                        newMap = CreatePath(p, pathwayWidth, newMap);
                     }
                 }
             }
@@ -739,13 +741,43 @@ namespace CellularAutomataCaveGeneration
                         // change the map to have the connection
                         foreach (Point p in lines)
                         {
-                            newMap[p.x, p.y] = pathwayCode;
+                            //newMap[p.x, p.y] = pathwayCode;
+                            newMap = CreatePath(p, pathwayWidth, newMap);
                         }
+                        
+
+
                     }  
                     
                     // for some reason this hangs
                     //newMap = Connect(newMap, regionsAccessibleFromMainRegion.Count, regionsNotAccessibleFromMainRegion.Count, true);
                     UpdateMainRegionAccessibility(mainRegionIndex);
+                }
+            }
+            return newMap;
+        }
+
+
+        // takes a point and a radius
+        // create a pathway by drawing a circle of path
+        static int[,] CreatePath(Point p, int r, int[,] oldMap)
+        {
+            int[,] newMap = oldMap;
+            for(int x = -r; x <= r; x++)
+            {
+                for (int y = -r; y <= r; y++)
+                {
+                    // if it's in the radius
+                    if(x*x + y*y <= r*r)
+                    {
+                        int px = p.x + x;
+                        int py = p.y + y;
+                        // within map bounds
+                        if(x >=0 && x < width && y >=0 && y < height)
+                        {
+                            newMap[px, py] = pathwayCode;
+                        }
+                    }
                 }
             }
             return newMap;
