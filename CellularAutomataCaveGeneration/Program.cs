@@ -59,11 +59,16 @@ namespace CellularAutomataCaveGeneration
         static int minimumRegionSize = 12;
 
         static int pathwayCode = -1;
+        static int treasureCode = -2;
+
+        //static int treasureRoomSize = 24;
 
         static int seed;
         static bool randSeed = true;
 
         static int pathwayWidth = 1;
+
+        static bool putTreasureInWalls = true;
 
         static bool auto;
         static void Main(string[] args)
@@ -204,6 +209,9 @@ namespace CellularAutomataCaveGeneration
                 PrintEdgeMap(map);
                 NextStep(auto, 1000);
 
+                map = AddTreasure(map, putTreasureInWalls);
+                PrintMap(map, "added treasure");
+
                 map = ConnectRegions(map);
                 PrintMap(map, "all regions Connected");
                 Console.WriteLine("Seed: " + seed.ToString() + "\n\n");
@@ -225,6 +233,8 @@ namespace CellularAutomataCaveGeneration
                 Console.WriteLine("region detection done\n");
                 map = RemoveSmallRegions(map);
                 Console.WriteLine("removing small regions done\n");
+                map = AddTreasure(map, putTreasureInWalls);
+                Console.WriteLine("adding treasure");
                 map = ConnectRegions(map);
                 Console.WriteLine("ensuring room connection done\n");
 
@@ -256,9 +266,17 @@ namespace CellularAutomataCaveGeneration
                 for (int x = 0; x < width; x++)
                 {
                     if (map[x, y] == 1)
+                    {
                         Console.Write("*");
+                    }
                     else if (map[x, y] == pathwayCode) // for testing to draw connecting regions, remove later.
+                    {
                         Console.Write("~");
+                    }
+                    else if (map[x, y] == treasureCode)
+                    {
+                        Console.Write("+");
+                    }
                     else
                     {
                         char letter = (char)('A' + (char)(map[x, y] % 27));
@@ -311,7 +329,7 @@ namespace CellularAutomataCaveGeneration
             {
                 for (int x = 0; x < width; x++)
                 {
-                    float chance = (float)Convert.ToDouble(r.Next(0, 100)) / 100;
+                    float chance = (float)(r.Next(0, 100)) / 100;
                     if (chance < changeToStartAlive)
                     {
                         map[x, y] = 1;
@@ -401,12 +419,14 @@ namespace CellularAutomataCaveGeneration
             return count;
         }
 
+
+
+
         // the map passed in here will be ...
         // 1 = filled
         // 0 = unfilled
         // track the positions of where 0 spaces start before hand so the loops are minimized.
         // ie -> keep track of the f
-
         // change this so regionID starts at 0
         static int[,] DetectRegions(int[,] oldMap) 
         { 
@@ -850,6 +870,39 @@ namespace CellularAutomataCaveGeneration
                 }
             }
             return lines;
+        }
+        
+        static int[,] AddTreasure(int[,] oldMap, bool putInWall)
+        {
+            int[,] newMap = oldMap;
+
+            int count = 0;
+            int currentMin = 999999999;
+            int index = 0;
+            foreach(Region region in regions)
+            {
+                if(region.cells.Count < currentMin)
+                {
+                    currentMin = region.cells.Count;
+                    index = count;
+                }
+
+                count++;
+            }
+            
+            Random r = new Random();
+            Point p;
+            if(putInWall)
+            {
+                p = regions[index].edgeCells.ElementAt((int)r.Next(0, regions[index].edgeCells.Count)).Value;
+            }
+            else
+            {
+                p = regions[index].cells.ElementAt((int)r.Next(0, regions[index].cells.Count)).Value;
+            }
+
+            newMap[p.x, p.y] = treasureCode;
+            return newMap;
         }
 
         static int getRegionIndex(int regionId)
