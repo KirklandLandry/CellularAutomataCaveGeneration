@@ -20,9 +20,14 @@ namespace CellularAutomataCaveGeneration
 
         // change this to it's onw connected region object
         public bool connectedToMainRegion = false;
-        public double distanceToMainRegion = 0;  // if it remains 0, that means this is the main region
-        public string thisRegionCell; // the cell in this region
-        public string mainRegionCell; // the cell in the main region
+        //public double distanceToMainRegion = 0;  // if it remains 0, that means this is the main region
+        //public string thisRegionCell; // the cell in this region
+        //public string mainRegionCell; // the cell in the main region
+
+        // this list will have 
+        // a key telling the adjacent region id
+        // a distance to that region
+        public Dictionary<int, DistanceBetweenTwoRegionsStruct> distanceToAdjacentRegions;
 
         public Region(int id)
         {
@@ -30,6 +35,7 @@ namespace CellularAutomataCaveGeneration
             cells = new Dictionary<string, Point>();
             edgeCells = new Dictionary<string, Point>();
             connectedRegions = new List<ConnectedRegion>();
+            distanceToAdjacentRegions = new Dictionary<int, DistanceBetweenTwoRegionsStruct>();
         }
         
         public void Add(Point p, bool edge)
